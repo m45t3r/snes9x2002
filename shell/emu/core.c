@@ -11,9 +11,6 @@
 #include "soundux.h"
 #include "memmap.h"
 #include "apu.h"
-#ifdef USE_BLARGG_APU
-#include "apu_blargg.h"
-#endif
 #include "cheats.h"
 #include "display.h"
 #include "gfx.h"
@@ -39,24 +36,10 @@ static int32_t samples_to_play = 0;
 static int32_t samples_per_frame = 0;
 static int32_t samplerate = (((SNES_CLOCK_SPEED * 6) / (32 * ONE_APU_CYCLE)));
 
-#ifdef USE_BLARGG_APU
-static void S9xAudioCallback()
-{
-   size_t avail;
-   /* Just pick a big buffer. We won't use it all. */
-   static int16_t audio_buf[0x20000];
-
-   S9xFinalizeSamples();
-   avail = S9xGetSampleCount();
-   S9xMixSamples(audio_buf, avail);
-   Audio_Write(audio_buf, avail >> 1);
-}
-#endif
-
 void RTC_Save(char* path, uint_fast8_t state)
 {
 	FILE* savefp;
-	
+
 	/* If RTC is disabled then don't bother saving any RTC info */
 	if (!Settings.SRTC) return;
 
@@ -107,7 +90,7 @@ void RTC_Save(char* path, uint_fast8_t state)
 void SRAM_Save(char* path, uint_fast8_t state)
 {
 	FILE* savefp;
-	
+
 	/* If SRAM is not used then don't bother saving any SRAM file */
 	if (Memory.SRAMMask == 0) return;
 
@@ -133,50 +116,38 @@ void SRAM_Save(char* path, uint_fast8_t state)
 
 void SaveState(char* path, uint_fast8_t state)
 {
-#ifndef USE_BLARGG_APU
 	uint8_t* IAPU_RAM_current = IAPU.RAM;
 	uintptr_t IAPU_RAM_offset;
-#endif
 	char* buffer;
 	FILE* savefp;
-	
-#ifndef USE_BLARGG_APU
+
 	buffer = malloc(sizeof(APU) + sizeof(IAPU) + 0x10000);
-#else
-	buffer = malloc(SPC_SAVE_STATE_BLOCK_SIZE);
-#endif
-	
+
 	if (state == 1)
 	{
 		savefp = fopen(path, "rb");
 		if (savefp)
 		{
 			S9xReset();
-			
+
 			fread(&CPU, sizeof(uint8_t), sizeof(CPU), savefp);
 			fread(&ICPU, sizeof(uint8_t), sizeof(ICPU), savefp);
 			fread(&PPU, sizeof(uint8_t), sizeof(PPU), savefp);
 			fread(&DMA, sizeof(uint8_t), sizeof(DMA), savefp);
-		   
+
 			fread(Memory.VRAM, sizeof(uint8_t), 0x10000, savefp);
 			fread(Memory.RAM, sizeof(uint8_t), 0x20000, savefp);
 			fread(Memory.SRAM, sizeof(uint8_t), 0x20000, savefp);
 			fread(Memory.FillRAM, sizeof(uint8_t), 0x8000, savefp);
-
-			#ifndef USE_BLARGG_APU
-				fread(&APU, sizeof(uint8_t), sizeof(APU), savefp);
-				fread(&IAPU, sizeof(uint8_t), sizeof(IAPU), savefp);
-				IAPU_RAM_offset = IAPU_RAM_current - IAPU.RAM;
-				IAPU.PC += IAPU_RAM_offset;
-				IAPU.DirectPage += IAPU_RAM_offset;
-				IAPU.WaitAddress1 += IAPU_RAM_offset;
-				IAPU.WaitAddress2 += IAPU_RAM_offset;
-				IAPU.RAM = IAPU_RAM_current;
-				fread(IAPU.RAM, sizeof(uint8_t), 0x10000, savefp);
-			#else
-				S9xAPULoadState(buffer);
-				fread(buffer, sizeof(uint8_t), SPC_SAVE_STATE_BLOCK_SIZE, savefp);
-			#endif
+			fread(&APU, sizeof(uint8_t), sizeof(APU), savefp);
+			fread(&IAPU, sizeof(uint8_t), sizeof(IAPU), savefp);
+			IAPU_RAM_offset = IAPU_RAM_current - IAPU.RAM;
+			IAPU.PC += IAPU_RAM_offset;
+			IAPU.DirectPage += IAPU_RAM_offset;
+			IAPU.WaitAddress1 += IAPU_RAM_offset;
+			IAPU.WaitAddress2 += IAPU_RAM_offset;
+			IAPU.RAM = IAPU_RAM_current;
+			fread(IAPU.RAM, sizeof(uint8_t), 0x10000, savefp);
 
 			SA1Registers.PC = SA1.PC - SA1.PCBase;
 			S9xSA1PackStatus();
@@ -184,7 +155,7 @@ void SaveState(char* path, uint_fast8_t state)
 			// fread(&s7r, sizeof(uint8_t), sizeof(s7r), savefp);
 			// fread(&rtc_f9, sizeof(uint8_t), sizeof(rtc_f9), savefp);
 			fclose(savefp);
-			
+
 			S9xFixSA1AfterSnapshotLoad();
 			FixROMSpeed();
 			IPPU.ColorsChanged = true;
@@ -192,10 +163,8 @@ void SaveState(char* path, uint_fast8_t state)
 			CPU.InDMA = false;
 			S9xFixColourBrightness();
 			S9xSA1UnpackStatus();
-			#ifndef USE_BLARGG_APU
-				S9xAPUUnpackStatus();
-				S9xFixSoundAfterSnapshotLoad();
-			#endif
+			S9xAPUUnpackStatus();
+			S9xFixSoundAfterSnapshotLoad();
 			ICPU.ShiftedPB = Registers.PB << 16;
 			ICPU.ShiftedDB = Registers.DB << 16;
 			S9xSetPCBase(ICPU.ShiftedPB + Registers.PC);
@@ -211,31 +180,24 @@ void SaveState(char* path, uint_fast8_t state)
 		{
 			#ifdef LAGFIX
 			S9xPackStatus();
-				#ifndef USE_BLARGG_APU
-					S9xAPUPackStatus();
-				#endif
+			S9xAPUPackStatus();
 			#endif
-			
+
 			// S9xUpdateRTC();
 			S9xSRTCPreSaveState();
 			fwrite(&CPU, sizeof(uint8_t), sizeof(CPU), savefp);
 			fwrite(&ICPU, sizeof(uint8_t), sizeof(ICPU), savefp);
 			fwrite(&PPU, sizeof(uint8_t), sizeof(PPU), savefp);
 			fwrite(&DMA, sizeof(uint8_t), sizeof(DMA), savefp);
-		   
+
 			fwrite(Memory.VRAM, sizeof(uint8_t), 0x10000, savefp);
 			fwrite(Memory.RAM, sizeof(uint8_t), 0x20000, savefp);
 			fwrite(Memory.SRAM, sizeof(uint8_t), 0x20000, savefp);
 			fwrite(Memory.FillRAM, sizeof(uint8_t), 0x8000, savefp);
 
-			#ifndef USE_BLARGG_APU
-				fwrite(&APU, sizeof(uint8_t), sizeof(APU), savefp);
-				fwrite(&IAPU, sizeof(uint8_t), sizeof(IAPU), savefp);
-				fwrite(IAPU.RAM, sizeof(uint8_t), 0x10000, savefp);
-			#else
-				S9xAPUSaveState(buffer);
-				fwrite(buffer, sizeof(uint8_t), SPC_SAVE_STATE_BLOCK_SIZE, savefp);
-			#endif
+			fwrite(&APU, sizeof(uint8_t), sizeof(APU), savefp);
+			fwrite(&IAPU, sizeof(uint8_t), sizeof(IAPU), savefp);
+			fwrite(IAPU.RAM, sizeof(uint8_t), 0x10000, savefp);
 
 			Registers.PC = SA1.PC - SA1.PCBase;
 			S9xSA1PackStatus();
@@ -245,13 +207,13 @@ void SaveState(char* path, uint_fast8_t state)
 			fclose(savefp);
 		}
 	}
-	
+
 	if (buffer) free(buffer);
 }
 
 
 #ifdef FRAMESKIP
-static uint32_t Timer_Read(void) 
+static uint32_t Timer_Read(void)
 {
 	/* Timing. */
 	struct timeval tval;
@@ -270,9 +232,7 @@ static const uint32_t TblSkip[4][4] = {
 
 void Emulation_Run (void)
 {
-#ifndef USE_BLARGG_APU
 	static int16_t audio_buf[2048];
-#endif
 
 #ifdef FRAMESKIP
 	SkipCnt++;
@@ -282,15 +242,11 @@ void Emulation_Run (void)
 #else
 	IPPU.RenderThisFrame = true;
 #endif
-	
-#ifdef USE_BLARGG_APU
-	S9xSetSoundMute(false);
-#endif
+
 	// Settings.HardDisableAudio = false;
 
 	S9xMainLoop();
 
-#ifndef USE_BLARGG_APU
 	samples_to_play += samples_per_frame;
 
 	if (samples_to_play > 512)
@@ -299,9 +255,6 @@ void Emulation_Run (void)
 		Audio_Write(audio_buf, samples_to_play);
 		samples_to_play = 0;
 	}
-#else
-	S9xAudioCallback();
-#endif
 
 
 #ifdef FRAMESKIP
@@ -363,10 +316,9 @@ bool Load_Game_Memory(char* game_path)
 	S9xSetPlaybackRate(so.playback_rate);
 	S9xSetSoundMute(FALSE);
 
-#ifndef USE_BLARGG_APU
 	samples_per_frame = samplerate / fps;
 	S9xSetPlaybackRate(Settings.SoundPlaybackRate);
-#endif
+
 	return true;
 }
 
@@ -405,9 +357,6 @@ void init_sfc_setting(void)
    Settings.TurboMode = FALSE;
    Settings.TurboSkipFrames = 15;
    Settings.SoundSync = FALSE;
-#ifdef USE_BLARGG_APU
-   Settings.SoundSync = true;
-#endif
 #ifdef ASM_SPC700
    Settings.asmspc700 = TRUE;
 #endif
@@ -427,13 +376,8 @@ void Init_SFC(void)
    MemoryInit();
    S9xInitAPU();
    S9xGraphicsInit();
-#ifdef USE_BLARGG_APU
-   S9xInitSound(1000, 0); /* just give it a 1 second buffer */
-   S9xSetSamplesAvailableCallback(S9xAudioCallback);
-#else
    S9xInitSound();
-#endif
-   // CPU.SaveStateVersion = 0;
+
    const int safety = 128;
    const bool use_overscan = false;
 
@@ -485,36 +429,36 @@ void Deinit_SFC(void)
 int main(int argc, char* argv[])
 {
 	int isloaded;
-	
+
 	printf("Starting Snes9x2005\n");
-    
+
 	if (argc < 2)
 	{
 		printf("Specify a ROM to load in memory\n");
 		return 0;
 	}
-	
+
 	snprintf(GameName_emu, sizeof(GameName_emu), "%s", basename(argv[1]));
 	Init_SFC();
-	
+
 	Init_Video();
 	Audio_Init();
-	
+
 	overclock_cycles = false;
 	one_c = 4;
 	slow_one_c = 5;
 	two_c = 6;
 	reduce_sprite_flicker = false;
-	
+
 	isloaded = Load_Game_Memory(argv[1]);
 	if (!isloaded)
 	{
 		printf("Could not load ROM in memory\n");
 		return 0;
 	}
-	
+
 	Init_Configuration();
-	
+
     // get the game ready
     while (!exit_snes)
     {
@@ -528,8 +472,8 @@ int main(int argc, char* argv[])
 			break;
 		}
     }
-    
-	Deinit_SFC();
+
+    Deinit_SFC();
     Audio_Close();
     Video_Close();
 
