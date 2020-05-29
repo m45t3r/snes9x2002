@@ -49,8 +49,6 @@ uint32 S9xReadJoypad(int which1_0_to_4);
 bool8_32 S9xReadMousePosition(int which1_0_to_1, int* x, int* y, uint32* buttons);
 bool8_32 S9xReadSuperScopePosition(int* x, int* y, uint32* buttons);
 
-void S9xInitDisplay(int argc, char** argv);
-void S9xDeinitDisplay();
 void S9xInitInputDevices();
 void S9xSetTitle(const char* title);
 void S9xProcessEvents(bool8_32 block);

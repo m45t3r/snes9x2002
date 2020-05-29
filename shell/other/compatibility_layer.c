@@ -35,65 +35,6 @@ void S9xMessage(int a, int b, const char* msg)
 
 const char* S9xGetDirectory(uint32_t dirtype) { return NULL; }
 
-void S9xDeinitDisplay(void)
-{
-#ifdef DS2_DMA
-   if (GFX.Screen_buffer)
-      AlignedFree(GFX.Screen, PtrAdj.GFXScreen);
-#elif defined(_3DS)
-   if (GFX.Screen_buffer)
-      linearFree(GFX.Screen_buffer);
-#else
-   if (GFX.Screen_buffer)
-      free(GFX.Screen_buffer);
-#endif
-#if 0
-   if (GFX.SubScreen_buffer)
-      free(GFX.SubScreen_buffer);
-#endif
-   if (GFX.ZBuffer_buffer)
-      free(GFX.ZBuffer_buffer);
-   if (GFX.SubZBuffer_buffer)
-      free(GFX.SubZBuffer_buffer);
-
-   GFX.Screen = NULL;
-   GFX.Screen_buffer = NULL;
-   GFX.SubScreen = NULL;
-   // GFX.SubScreen_buffer = NULL;
-   GFX.ZBuffer = NULL;
-   GFX.ZBuffer_buffer = NULL;
-   GFX.SubZBuffer = NULL;
-   GFX.SubZBuffer_buffer = NULL;
-}
-
-void S9xInitDisplay(int argc, char **argv)
-{
-   int32_t h = IMAGE_HEIGHT;
-   int32_t safety = 32;
-
-   GFX.Pitch = IMAGE_WIDTH * 2;
-#ifdef DS2_DMA
-   GFX.Screen_buffer = (uint8_t *) AlignedMalloc(GFX.Pitch * h + safety, 32, &PtrAdj.GFXScreen);
-#elif defined(_3DS)
-   safety = 0x80;
-   GFX.Screen_buffer = (uint8_t *) linearMemAlign(GFX.Pitch * h + safety, 0x80);
-#else
-   GFX.Screen_buffer = (uint8_t *) malloc(GFX.Pitch * h + safety);
-#endif
-   // GFX.SubScreen_buffer = (uint8_t *) malloc(GFX.Pitch * h + safety);
-   uint8_t* SubScreen_buffer = (uint8_t *) malloc(GFX.Pitch * h + safety);
-   GFX.ZBuffer_buffer = (uint8_t *) malloc((GFX.Pitch >> 1) * h + safety);
-   GFX.SubZBuffer_buffer = (uint8_t *) malloc((GFX.Pitch >> 1) * h + safety);
-
-   GFX.Screen = GFX.Screen_buffer + safety;
-   // GFX.SubScreen = GFX.SubScreen_buffer + safety;
-   GFX.SubScreen = SubScreen_buffer + safety;
-   GFX.ZBuffer = GFX.ZBuffer_buffer + safety;
-   GFX.SubZBuffer = GFX.SubZBuffer_buffer + safety;
-
-   GFX.Delta = (GFX.SubScreen - GFX.Screen) >> 1;
-}
-
 void _splitpath (const char *path, char *drive, char *dir, char *fname, char *ext)
 {
     char *slash = strrchr ((char *) path, SLASH_CHAR);
@@ -180,13 +121,37 @@ bool8_32 S9xReadSuperScopePosition(int* x, int* y, uint32* buttons)
    return true;
 }
 
-void S9xLoadSDD1Data(void) {} // TODO
+// S9x function stubs
+const char* S9xGetFilenameInc(const char* in) { return in; }
+const char *S9xGetHomeDirectory() { return NULL; }
+const char *S9xGetSnapshotDirectory() { return NULL; }
+const char *S9xGetROMDirectory() { return NULL; }
 
-void S9xExit(void) {} // TODO
+void S9xSetPalette() {}
 
-bool8 S9xInitUpdate() { return true; }; // TODO
+void S9xLoadSDD1Data(void) {}
 
-bool8 S9xDeinitUpdate(int Width, int Height, bool8 sixteen_bit) { return true; } // TODO
+void S9xExit(void) {
+   exit(1);
+}
+
+bool8 S9xInitUpdate() {
+   return true;
+};
+
+bool8 S9xContinueUpdate(int width, int height) { return true; }
+
+bool8 S9xDeinitUpdate(int width, int height, bool8 sixteen_bit)
+{
+   // TODO: Do not call if !IPPU.RenderThisFrame?
+   Update_Video_Ingame();
+
+   return true;
+}
+
+void S9xToggleSoundChannel (int channel) {}
+
+const char *S9xStringInput(const char *message) { return NULL; }
 
 bool JustifierOffscreen(void)
 {

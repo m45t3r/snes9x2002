@@ -44,7 +44,7 @@ SOUND_BACKEND = alsa
 
 SOURCES += ./shell/emu/core.c ./shell/scalers/scaler.c ./shell/audio/$(SOUND_BACKEND)/sound_output.c ./shell/menu/font_drawing.c ./shell/menu/menu.c ./shell/video/$(VIDEO_BACKEND)/video_blit.c ./shell/input/$(INPUT_BACKEND)/input.c ./shell/other/compatibility_layer.c
 INCLUDES += -I./shell/emu -I./shell/scalers -I./shell/emu -I./shell/audio -I./shell/menu -I./shell/video/sdl -I./shell/input -Ishell/headers
-DEFINES += -DLSB_FIRST -DFAST_ALIGNED_LSB_WORD_ACCESS -DFRAMESKIP -DLAGFIX
+DEFINES += -DLSB_FIRST -DFAST_ALIGNED_LSB_WORD_ACCESS -DFRAMESKIP -DLAGFIX -DBITTBOY
 
 OBJECTS := $(SOURCES:.c=.o) $(SOURCES_ASM:.S=.o)
 

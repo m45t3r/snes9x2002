@@ -307,9 +307,6 @@ void Emulation_Run (void)
 #ifdef FRAMESKIP
 	if (IPPU.RenderThisFrame)
 	{
-#endif
-		Update_Video_Ingame();
-#ifdef FRAMESKIP
 		IPPU.RenderThisFrame = false;
 	}
 	else
@@ -321,7 +318,7 @@ void Emulation_Run (void)
 #ifdef FRAMESKIP
 	video_frames++;
 	newTick = Timer_Read();
-	if ( (newTick) - (lastTick) > 1000000) 
+	if ( (newTick) - (lastTick) > 1000000)
 	{
 		FPS = video_frames;
 		video_frames = 0;
@@ -349,15 +346,23 @@ bool Load_Game_Memory(char* game_path)
 		return false;
 
 	Settings.FrameTime = (Settings.PAL ? Settings.FrameTimePAL : Settings.FrameTimeNTSC);
-	
-   if (!Settings.PAL)
-      fps = (SNES_CLOCK_SPEED * 6.0 / (SNES_CYCLES_PER_SCANLINE * SNES_MAX_NTSC_VCOUNTER));
-   else
-      fps = (SNES_CLOCK_SPEED * 6.0 / (SNES_CYCLES_PER_SCANLINE * SNES_MAX_PAL_VCOUNTER));
-      
+
+	if (!Settings.PAL)
+	   fps = (SNES_CLOCK_SPEED * 6.0 / (SNES_CYCLES_PER_SCANLINE * SNES_MAX_NTSC_VCOUNTER));
+	else
+	   fps = (SNES_CLOCK_SPEED * 6.0 / (SNES_CYCLES_PER_SCANLINE * SNES_MAX_PAL_VCOUNTER));
+
 	samplerate = SOUND_OUTPUT_FREQUENCY;
-	Settings.SoundPlaybackRate = samplerate;
-   
+
+	//S9xGraphicsInit();
+	S9xReset();
+	CPU.APU_APUExecuting = Settings.APUEnabled = 1;
+	Settings.SixteenBitSound = true;
+	so.stereo = Settings.Stereo;
+	so.playback_rate = Settings.SoundPlaybackRate = samplerate;
+	S9xSetPlaybackRate(so.playback_rate);
+	S9xSetSoundMute(FALSE);
+
 #ifndef USE_BLARGG_APU
 	samples_per_frame = samplerate / fps;
 	S9xSetPlaybackRate(Settings.SoundPlaybackRate);
@@ -369,35 +374,58 @@ bool Load_Game_Memory(char* game_path)
 void init_sfc_setting(void)
 {
    memset(&Settings, 0, sizeof(Settings));
-   Settings.JoystickEnabled = false;
+   Settings.JoystickEnabled = FALSE;
    Settings.SoundPlaybackRate = samplerate;
+   Settings.Stereo = TRUE;
+   Settings.SoundBufferSize = 0;
    Settings.CyclesPercentage = 100;
-
-   Settings.DisableSoundEcho = false;
-   Settings.InterpolatedSound = true;
-   Settings.APUEnabled = true;
-
+   Settings.DisableSoundEcho = FALSE;
+   Settings.APUEnabled = FALSE;
    Settings.H_Max = SNES_CYCLES_PER_SCANLINE;
+   Settings.SkipFrames = AUTO_FRAMERATE;
+   Settings.Shutdown = Settings.ShutdownMaster = TRUE;
    Settings.FrameTimePAL = 20000;
    Settings.FrameTimeNTSC = 16667;
-   Settings.DisableMasterVolume = false;
-   Settings.Mouse = true;
-   Settings.SuperScope = true;
-   Settings.MultiPlayer5 = true;
-   Settings.ControllerOption = SNES_JOYPAD;
+   Settings.FrameTime = Settings.FrameTimeNTSC;
+   Settings.DisableSampleCaching = FALSE;
+   Settings.DisableMasterVolume = FALSE;
+   Settings.Mouse = FALSE;
+   Settings.SuperScope = FALSE;
+   Settings.MultiPlayer5 = FALSE;
+   //	Settings.ControllerOption = SNES_MULTIPLAYER5;
+   Settings.ControllerOption = 0;
+
+   Settings.ForceTransparency = FALSE;
+   Settings.Transparency = TRUE;
+   Settings.SixteenBit = TRUE;
+
+   Settings.SupportHiRes = FALSE;
+   Settings.AutoSaveDelay = 30;
+   Settings.ApplyCheats = TRUE;
+   Settings.TurboMode = FALSE;
+   Settings.TurboSkipFrames = 15;
+   Settings.SoundSync = FALSE;
 #ifdef USE_BLARGG_APU
    Settings.SoundSync = true;
 #endif
-   Settings.ApplyCheats = false;
+#ifdef ASM_SPC700
+   Settings.asmspc700 = TRUE;
+#endif
+   Settings.SpeedHacks = TRUE;
+
    Settings.HBlankStart = (256 * Settings.H_Max) / SNES_HCOUNTER_MAX;
+
+   Settings.InterpolatedSound = TRUE;
 }
 
 void Init_SFC(void)
 {
    init_sfc_setting();
+
+   CPU.Flags = 0;
+
    MemoryInit();
    S9xInitAPU();
-   S9xInitDisplay(0, 0);
    S9xGraphicsInit();
 #ifdef USE_BLARGG_APU
    S9xInitSound(1000, 0); /* just give it a 1 second buffer */
@@ -406,22 +434,52 @@ void Init_SFC(void)
    S9xInitSound();
 #endif
    // CPU.SaveStateVersion = 0;
+   const int safety = 128;
+   const bool use_overscan = false;
+
+   GFX.Pitch = use_overscan ? 1024 : 2048;
+
+   // hack to make sure GFX.Delta is always  (2048 * 512 * 2) >> 1, needed for tile16_t.h
+#ifdef _3DS
+   GFX.Screen_buffer = (uint8 *) linearMemAlign(2048 * 512 * 2 * 2 + safety, 0x80);
+#else
+   GFX.Screen_buffer = (uint8 *) calloc(1, 2048 * 512 * 2 * 2 + safety);
+#endif
+   GFX.Screen = GFX.Screen_buffer + safety;
+
+   GFX.SubScreen = GFX.Screen + 2048 * 512 * 2;
+   GFX.ZBuffer_buffer = (uint8 *) calloc(1, GFX.Pitch * 512 * sizeof(uint16) + safety);
+   GFX.ZBuffer = GFX.ZBuffer_buffer + safety;
+   GFX.SubZBuffer_buffer = (uint8 *) calloc(1, GFX.Pitch * 512 * sizeof(uint16) + safety);
+   GFX.SubZBuffer = GFX.SubZBuffer_buffer + safety;
+   GFX.Delta = 1048576; //(GFX.SubScreen - GFX.Screen) >> 1;
 }
 
 void Deinit_SFC(void)
 {
-#if 0
-   if (Settings.SPC7110)
-      Del7110Gfx();
-#endif
-
-   S9xGraphicsDeinit();
-   S9xDeinitDisplay();
    S9xDeinitAPU();
    MemoryDeinit();
+   S9xGraphicsDeinit();
+   //S9xUnmapAllControls();
+   if(GFX.Screen_buffer)
+#ifdef _3DS
+      linearFree(GFX.Screen_buffer);
+#else
+      free(GFX.Screen_buffer);
+#endif
+   GFX.Screen_buffer = NULL;
+   GFX.Screen = NULL;
+   GFX.SubScreen = NULL;
+
+   if(GFX.ZBuffer_buffer)
+      free(GFX.ZBuffer_buffer);
+   GFX.ZBuffer_buffer = NULL;
+
+   if(GFX.SubZBuffer_buffer)
+      free(GFX.SubZBuffer_buffer);
+
+   GFX.SubZBuffer_buffer = NULL;
 }
-
-
 
 /* Main entrypoint of the emulator */
 int main(int argc, char* argv[])
