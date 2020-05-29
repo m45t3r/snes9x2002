@@ -22,7 +22,7 @@ SHARED := -Wl,--as-needed -Wl,--gc-sections -s
 CFLAGS += -ffast-math -march=armv5te -mtune=arm926ej-s -marm
 CFLAGS += -fno-builtin -fno-exceptions
 CFLAGS += $(SDL_CFLAGS)
-ARM_ASM = 0
+ARM_ASM = 1
 ASM_CPU = 0
 ASM_SPC700 = 0
 
@@ -37,6 +37,14 @@ endif
 LDFLAGS += $(LIBM) $(SDL_LIBS) -lz
 
 include Makefile.common
+
+VIDEO_BACKEND = sdl
+INPUT_BACKEND = sdl
+SOUND_BACKEND = alsa
+
+SOURCES += ./shell/emu/core.c ./shell/scalers/scaler.c ./shell/audio/$(SOUND_BACKEND)/sound_output.c ./shell/menu/font_drawing.c ./shell/menu/menu.c ./shell/video/$(VIDEO_BACKEND)/video_blit.c ./shell/input/$(INPUT_BACKEND)/input.c ./shell/other/compatibility_layer.c
+INCLUDES += -I./shell/emu -I./shell/scalers -I./shell/emu -I./shell/audio -I./shell/menu -I./shell/video/sdl -I./shell/input -Ishell/headers
+DEFINES += -DLSB_FIRST -DFAST_ALIGNED_LSB_WORD_ACCESS -DFRAMESKIP -DLAGFIX
 
 OBJECTS := $(SOURCES:.c=.o) $(SOURCES_ASM:.S=.o)
 
