@@ -1,5 +1,4 @@
 #include <SDL/SDL.h>
-#include <portaudio.h>
 #include "main.h"
 #include "snes9x.h"
 #include "soundux.h"
@@ -126,6 +125,21 @@ const char* S9xGetFilenameInc(const char* in) { return in; }
 const char *S9xGetHomeDirectory() { return NULL; }
 const char *S9xGetSnapshotDirectory() { return NULL; }
 const char *S9xGetROMDirectory() { return NULL; }
+
+int s_open(const char *fname, const char *mode) { return 0; }
+int s_read(void *p, int l) { return 0; }
+int s_write(void *p, int l) { return 0; }
+void s_close(void) {}
+
+int  (*statef_open)(const char *fname, const char *mode) = s_open;
+int  (*statef_read)(void *p, int l) = s_read;
+int  (*statef_write)(void *p, int l) = s_write;
+void (*statef_close)(void) = s_close;
+
+const char *S9xBasename (const char *filename) {
+   const char *emptyString = "";
+   return emptyString;
+}
 
 void S9xSetPalette() {}
 

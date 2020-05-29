@@ -1,25 +1,21 @@
-DEBUG	= 0
+DEBUG	= 1
 LAGFIX	= 1
 TARGET_NAME = snes9x2002
 
 TARGET := snes9x2002
 
-PREFIX  = arm-linux
-
-CC	= $(PREFIX)-gcc
-STRIP	= $(PREFIX)-strip
+CC	= gcc
+STRIP	= strip
 
 SYSROOT := $(shell $(CC) --print-sysroot)
 SDL_CFLAGS := $(shell $(SYSROOT)/usr/bin/sdl-config --cflags)
 SDL_LIBS := $(shell $(SYSROOT)/usr/bin/sdl-config --libs)
 
-STATIC_LINKING := 1
-fpic := -fno-PIC
-SHARED := -Wl,--as-needed -Wl,--gc-sections -s
-CFLAGS += -ffast-math -march=armv5te -mtune=arm926ej-s -marm
-CFLAGS += -fno-builtin -fno-exceptions
+STATIC_LINKING := 0
+fpic := -fPIC
+SHARED := -shared -Wl,--no-undefined
 CFLAGS += $(SDL_CFLAGS)
-ARM_ASM = 1
+ARM_ASM = 0
 ASM_CPU = 0
 ASM_SPC700 = 0
 
@@ -28,10 +24,10 @@ CORE_DIR := ./src
 ifeq ($(DEBUG), 1)
 DEFINES += -O0 -g
 else
-DEFINES += -Ofast -DNDEBUG=1
+DEFINES += -O2 -DNDEBUG=1
 endif
 
-LDFLAGS += $(LIBM) $(SDL_LIBS) -lz
+LDFLAGS += $(LIBM) $(SDL_LIBS) -lz -lasound -lm
 
 include Makefile.common
 
