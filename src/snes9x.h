@@ -50,13 +50,26 @@
 
 #define ROM_NAME_LEN 23
 
-#include <streams/memory_stream.h>
-#define STREAM memstream_t *
-#define READ_STREAM(p, l, s)     memstream_read(s, p, l)
-#define WRITE_STREAM(p, l, s)    memstream_write(s, p, l)
-#define OPEN_STREAM(f, m)        memstream_open(0)
-#define CLOSE_STREAM(s)          memstream_close(s)
-#define SEEK_STREAM(p,r,s)       memstream_seek(p,r,s)
+#ifdef ZLIB
+#include "zlib.h"
+#define STREAM gzFile
+#define READ_STREAM(p, l, s) gzread(s, p, l)
+#define WRITE_STREAM(p, l, s) gzwrite(s, p, l)
+#define OPEN_STREAM(f, m) gzopen(f, m)
+#define REOPEN_STREAM(f, m) gzdopen(f, m)
+#define FIND_STREAM(f) gztell(f)
+#define REVERT_STREAM(f, o, s) gzseek(f, o, s)
+#define CLOSE_STREAM(s) gzclose(s)
+#else
+#define STREAM FILE *
+#define READ_STREAM(p, l, s) fread(p, 1, l, s)
+#define WRITE_STREAM(p, l, s) fwrite(p, 1, l, s)
+#define OPEN_STREAM(f, m) fopen(f, m)
+#define REOPEN_STREAM(f, m) fdopen(f, m)
+#define FIND_STREAM(f) ftell(f)
+#define REVERT_STREAM(f, o, s) fseek(f, o, s)
+#define CLOSE_STREAM(s) fclose(s)
+#endif
 
 /* SNES screen width and height */
 #define SNES_WIDTH      256

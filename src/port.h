@@ -62,8 +62,7 @@ I can't take it anymore, it's too convoluted.  So I've commented out the entire
 #include <limits.h>
 #include <string.h>
 
-#include <boolean.h>
-#include <retro_inline.h>
+#include <stdbool.h>
 
 //Types Defined
 typedef uint8_t   bool8;
@@ -119,6 +118,7 @@ typedef short        int16_32;
 #if defined(ASM_SPC700) && defined(SPC700_SHUTDOWN)
 #undef SPC700_SHUTDOWN
 #endif
+#define INLINE inline
 
 void S9xGenerateSound(void);
 

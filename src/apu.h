@@ -44,8 +44,6 @@
 #include "port.h"
 #include "spc700.h"
 
-#include <retro_inline.h>
-
 /*
 typedef union
 {
