@@ -35,7 +35,7 @@ LDFLAGS += $(LIBM) $(SDL_LIBS) -lz
 
 include Makefile.common
 
-VIDEO_BACKEND = sdl
+VIDEO_BACKEND = miyoo
 INPUT_BACKEND = sdl
 SOUND_BACKEND = alsa
 

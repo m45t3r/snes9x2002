@@ -12,6 +12,7 @@
 #include "srtc.h"
 #include "sa1.h"
 #include "scaler.h"
+#include "video_blit.h"
 
 bool8 ROMAPUEnabled = 0;
 
@@ -157,6 +158,37 @@ bool8 S9xContinueUpdate(int width, int height) { return true; }
 
 bool8 S9xDeinitUpdate(int width, int height, bool8 sixteen_bit)
 {
+   int y;
+
+   if (height == 448 || height == 478)
+   {
+      /* Pitch 2048 -> 1024, only done once per res-change. */
+      if (GFX.Pitch == 2048)
+      {
+         for ( y = 1; y < height; y++)
+         {
+            uint8_t *src = GFX.Screen + y * 1024;
+            uint8_t *dst = GFX.Screen + y * 512;
+            memcpy(dst, src, width * sizeof(uint8_t) * 2);
+         }
+      }
+      GFX.Pitch = 1024;
+   }
+   else
+   {
+      /* Pitch 1024 -> 2048, only done once per res-change. */
+      if (GFX.Pitch == 1024)
+      {
+         for ( y = height - 1; y >= 0; y--)
+         {
+            uint8_t *src = GFX.Screen + y * 512;
+            uint8_t *dst = GFX.Screen + y * 1024;
+            memcpy(dst, src, width * sizeof(uint8_t) * 2);
+         }
+      }
+      GFX.Pitch = 2048;
+   }
+
    // TODO: Do not call if !IPPU.RenderThisFrame?
    Update_Video_Ingame();
 
