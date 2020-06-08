@@ -32,9 +32,9 @@ bool overclock_cycles = false;
 bool reduce_sprite_flicker = true;
 int one_c, slow_one_c, two_c;
 
-static int32_t samples_to_play = 0;
-static int32_t samples_per_frame = 0;
 static int32_t samplerate = (((SNES_CLOCK_SPEED * 6) / (32 * ONE_APU_CYCLE)));
+static int16_t audio_buf[0x10000];
+static unsigned avail;
 
 void RTC_Save(char* path, uint_fast8_t state)
 {
@@ -211,82 +211,20 @@ void SaveState(char* path, uint_fast8_t state)
 	if (buffer) free(buffer);
 }
 
-
-#ifdef FRAMESKIP
-static uint32_t Timer_Read(void)
-{
-	/* Timing. */
-	struct timeval tval;
-  	gettimeofday(&tval, 0);
-	return (((tval.tv_sec*1000000) + (tval.tv_usec)));
-}
-static long lastTick = 0, newTick;
-static uint32_t SkipCnt = 0, video_frames = 0, FPS = 60, FrameSkip;
-static const uint32_t TblSkip[4][4] = {
-    {0, 0, 0, 0},
-    {0, 0, 0, 1},
-	{0, 0, 1, 1},
-	{0, 1, 1, 1}
-};
-#endif
-
 void Emulation_Run (void)
 {
-	static int16_t audio_buf[2048];
+	bool updated = false;
 
 #ifdef FRAMESKIP
-	SkipCnt++;
-	if (SkipCnt > 3) SkipCnt = 0;
-	if (TblSkip[FrameSkip][SkipCnt]) IPPU.RenderThisFrame = false;
-	else IPPU.RenderThisFrame = true;
+	IPPU.RenderThisFrame = !IPPU.RenderThisFrame;
 #else
-	IPPU.RenderThisFrame = true;
+	IPPU.RenderThisFrame = TRUE;
 #endif
-
-	// Settings.HardDisableAudio = false;
 
 	S9xMainLoop();
-
-	samples_to_play += samples_per_frame;
-
-	if (samples_to_play > 512)
-	{
-		S9xMixSamples(audio_buf, samples_to_play * 2);
-		Audio_Write(audio_buf, samples_to_play);
-		samples_to_play = 0;
-	}
-
-
-#ifdef FRAMESKIP
-	if (IPPU.RenderThisFrame)
-	{
-		IPPU.RenderThisFrame = false;
-	}
-	else
-	{
-		IPPU.RenderThisFrame = true;
-	}
-#endif
-
-#ifdef FRAMESKIP
-	video_frames++;
-	newTick = Timer_Read();
-	if ( (newTick) - (lastTick) > 1000000)
-	{
-		FPS = video_frames;
-		video_frames = 0;
-		lastTick = newTick;
-		if (FPS >= 60)
-		{
-			FrameSkip = 0;
-		}
-		else
-		{
-			FrameSkip = 60 / FPS;
-			if (FrameSkip > 3) FrameSkip = 3;
-		}
-	}
-#endif
+	// asm_S9xMainLoop();
+	S9xMixSamples(audio_buf, avail);
+	Audio_Write((int16_t *) audio_buf, avail >> 1);
 }
 
 
@@ -316,8 +254,8 @@ bool Load_Game_Memory(char* game_path)
 	S9xSetPlaybackRate(so.playback_rate);
 	S9xSetSoundMute(FALSE);
 
-	samples_per_frame = samplerate / fps;
-	S9xSetPlaybackRate(Settings.SoundPlaybackRate);
+	avail = (int)(samplerate / (Settings.PAL ? 50 : 60)) << 1;
+	memset(audio_buf, 0, sizeof(audio_buf));
 
 	return true;
 }
