@@ -309,7 +309,7 @@ bool Load_Game_Memory(char* game_path)
 
 	//S9xGraphicsInit();
 	S9xReset();
-	CPU.APU_APUExecuting = Settings.APUEnabled = 1;
+	CPU.APU_APUExecuting = Settings.APUEnabled = TRUE;
 	Settings.SixteenBitSound = true;
 	so.stereo = Settings.Stereo;
 	so.playback_rate = Settings.SoundPlaybackRate = samplerate;

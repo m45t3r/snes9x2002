@@ -208,7 +208,7 @@ void asm_APU_EXECUTE2(void);
 
 #define asm_APU_EXECUTE2() \
 {\
-    if  (CPU.APU_APUExecuting == 1) {\
+    if  (CPU.APU_APUExecuting == TRUE) {\
         if (Settings.asmspc700) {\
       if (CPU.APU_Cycles < CPU.NextEvent) {\
          int cycles = CPU.NextEvent - CPU.APU_Cycles;\
